@@ -3,26 +3,78 @@ import pygame, sys, random, os
 pygame.init()
 WIDTH, HEIGHT = 1920, 1020
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Shadow Protocol 2d")
+pygame.display.set_caption("Shadow Protocol 2D")
 clock = pygame.time.Clock()
 FPS = 60
 pygame.mixer.init()
 
-WHITE=(255,255,255)
-RED=(220,60,60)
-GREEN=(60,220,120)
-YELLOW=(240,220,70)
+WHITE = (255, 255, 255)
+RED = (220, 60, 60)
+GREEN = (60, 220, 120)
+YELLOW = (240, 220, 70)
+BLUE = (50, 150, 255)
+DARK_BLUE = (30, 100, 200)
 
-ASSETS="assets/"
-BG=pygame.image.load(ASSETS+"background.png").convert()
-PLAYER_IMG=pygame.image.load(ASSETS+"player.png").convert_alpha()
-ENEMY_IMG=pygame.image.load(ASSETS+"enemy.png").convert_alpha()
+ASSETS = "assets/"
+BG = pygame.image.load(ASSETS + "background.png").convert()
+PLAYER_IMG = pygame.image.load(ASSETS + "player.png").convert_alpha()
+ENEMY_IMG = pygame.image.load(ASSETS + "enemy.png").convert_alpha()
+BOSS_IMG = pygame.image.load(ASSETS + "boss.png").convert_alpha()  # Custom boss skin
 
-font=pygame.font.SysFont("consolas",20)
-big=pygame.font.SysFont("consolas",48)
+font = pygame.font.SysFont("consolas", 20)
+big = pygame.font.SysFont("consolas", 48)
+
 pygame.mixer.music.load("music.mp3")
 pygame.mixer.music.play(-1)
 
+def start_screen():
+    title_font = pygame.font.SysFont("consolas", 100)
+    button_font = pygame.font.SysFont("consolas", 50)
+    start_button = pygame.Rect(WIDTH // 2 - 150, HEIGHT // 2, 300, 70)
+    button_hover_scale = 1.1
+
+    while True:
+        screen.blit(BG, (0, 0))
+
+        shine = pygame.time.get_ticks() % 1000 / 1000
+        shine_intensity = int(155 + 100 * shine)
+        color_shine = (shine_intensity, shine_intensity, shine_intensity)
+        title_text = title_font.render("SHADOW PROTOCOL 2D", True, color_shine)
+        screen.blit(title_text, (WIDTH // 2 - title_text.get_width() // 2, HEIGHT // 3))
+
+        mouse_pos = pygame.mouse.get_pos()
+        if start_button.collidepoint(mouse_pos):
+            scaled_w = int(start_button.width * button_hover_scale)
+            scaled_h = int(start_button.height * button_hover_scale)
+            scaled_button = pygame.Rect(
+                start_button.centerx - scaled_w // 2,
+                start_button.centery - scaled_h // 2,
+                scaled_w,
+                scaled_h
+            )
+            pygame.draw.rect(screen, DARK_BLUE, scaled_button, border_radius=12)
+            button_text = button_font.render("START", True, WHITE)
+            screen.blit(button_text, (
+                scaled_button.centerx - button_text.get_width() // 2,
+                scaled_button.centery - button_text.get_height() // 2
+            ))
+        else:
+            pygame.draw.rect(screen, BLUE, start_button, border_radius=12)
+            button_text = button_font.render("START", True, WHITE)
+            screen.blit(button_text, (
+                start_button.centerx - button_text.get_width() // 2,
+                start_button.centery - button_text.get_height() // 2
+            ))
+
+        pygame.display.update()
+
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                if start_button.collidepoint(e.pos):
+                    return
 
 def load_highscore():
     return int(open("highscore.txt").read()) if os.path.exists("highscore.txt") else 0
@@ -34,28 +86,27 @@ highscore = load_highscore()
 
 class Player:
     def __init__(self):
-        self.pos=pygame.Vector2(WIDTH//2,HEIGHT//2)
-        self.health=100
-        self.speed=5
-        self.damage=25
+        self.pos = pygame.Vector2(WIDTH // 2, HEIGHT // 2)
+        self.health = 100
+        self.speed = 5
+        self.damage = 25
     def update(self):
-        k=pygame.key.get_pressed()
-        if k[pygame.K_w]: self.pos.y-=self.speed
-        if k[pygame.K_s]: self.pos.y+=self.speed
-        if k[pygame.K_a]: self.pos.x-=self.speed
-        if k[pygame.K_d]: self.pos.x+=self.speed
+        k = pygame.key.get_pressed()
+        if k[pygame.K_w]: self.pos.y -= self.speed
+        if k[pygame.K_s]: self.pos.y += self.speed
+        if k[pygame.K_a]: self.pos.x -= self.speed
+        if k[pygame.K_d]: self.pos.x += self.speed
     def draw(self):
-        screen.blit(PLAYER_IMG,self.pos-(32,32))
+        screen.blit(PLAYER_IMG, self.pos - (32, 32))
 
 class Bullet:
     def __init__(self,pos,dir):
         self.pos=pygame.Vector2(pos)
         self.vel=dir*12
     def update(self):
-        self.pos+=self.vel
+        self.pos += self.vel
     def draw(self):
         pygame.draw.circle(screen,YELLOW,self.pos,4)
-
 
 class Enemy:
     def __init__(self,lvl):
@@ -71,40 +122,54 @@ class Enemy:
         screen.blit(ENEMY_IMG,self.pos-(32,32))
 
 class Boss(Enemy):
-    def __init__(self,lvl):
+    def __init__(self, lvl):
         super().__init__(lvl)
-        self.max_health=400+lvl*60
-        self.health=self.max_health
-        self.speed=2.5
-        self.damage=1.2
+        self.max_health = 400 + lvl*60
+        self.health = self.max_health
+        self.speed = 2.5
+        self.damage = 1.2
+        self.scale_factor = 1.0
+        self.scale_direction = 1
+
+    def draw(self):
+        self.scale_factor += 0.005 * self.scale_direction
+        if self.scale_factor >= 1.1:
+            self.scale_direction = -1
+        elif self.scale_factor <= 0.9:
+            self.scale_direction = 1
+        size = int(128 * self.scale_factor)
+        boss_img_scaled = pygame.transform.scale(BOSS_IMG, (size, size))
+        screen.blit(boss_img_scaled, self.pos - pygame.Vector2(size//2, size//2))
+
     def draw_bar(self):
-        r=self.health/self.max_health
-        pygame.draw.rect(screen,RED,(300,15,400,15))
-        pygame.draw.rect(screen,GREEN,(300,15,400*r,15))
-        pygame.draw.rect(screen,WHITE,(300,15,400,15),2)
+        r = self.health / self.max_health
+        pygame.draw.rect(screen, RED, (300, 15, 400, 15))
+        pygame.draw.rect(screen, GREEN, (300, 15, 400*r, 15))
+        pygame.draw.rect(screen, WHITE, (300, 15, 400, 15), 2)
 
 def reset_game():
     global player, bullets, enemies, boss, level, kills, score, level_timer, state
-    player=Player()
-    bullets=[]
-    enemies=[]
-    boss=None
-    level=1
-    kills=0
-    score=0
-    level_timer=0
+    player = Player()
+    bullets = []
+    enemies = []
+    boss = None
+    level = 1
+    kills = 0
+    score = 0
+    level_timer = 0
     spawn_level()
-    state="PLAY"
+    state = "PLAY"
 
-LEVEL_GOAL=10
+LEVEL_GOAL = 10
 def spawn_level():
     global enemies,boss
     enemies=[Enemy(level) for _ in range(LEVEL_GOAL)]
     boss=Boss(level) if level%5==0 else None
 
-state="PLAY"
+start_screen()
 reset_game()
 
+state="PLAY"
 running=True
 while running:
     clock.tick(FPS)
@@ -147,17 +212,17 @@ while running:
                         kills+=1
                         score+=10
 
-        if boss:
+        if boss is not None:
             boss.update(player)
-            if boss.pos.distance_to(player.pos)<60:
-                player.health-=boss.damage
+            if boss.pos.distance_to(player.pos) < 60:
+                player.health -= boss.damage
             for b in bullets[:]:
-                if boss.pos.distance_to(b.pos)<45:
-                    boss.health-=player.damage
+                if boss is not None and boss.pos.distance_to(b.pos) < 45:
+                    boss.health -= player.damage
                     bullets.remove(b)
-                    if boss.health<=0:
-                        boss=None
-                        score+=200
+                    if boss.health <= 0:
+                        boss = None
+                        score += 200
 
         if kills>=LEVEL_GOAL and not enemies and not boss:
             level+=1
@@ -193,3 +258,7 @@ while running:
 
 pygame.quit()
 sys.exit()
+
+
+
+
